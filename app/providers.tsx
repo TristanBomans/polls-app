@@ -31,7 +31,7 @@ export function Providers({
 
 function AuthenticatedUserSync() {
   const { isLoaded, isSignedIn, sessionId } = useAuth();
-  const { user } = useUser();
+  const { isLoaded: isUserLoaded, user } = useUser();
   const syncUser = useMutation(api.polls.syncUser);
   const lastSyncedProfileKey = useRef<string | null>(null);
 
@@ -46,7 +46,7 @@ function AuthenticatedUserSync() {
   ].join("|");
 
   useEffect(() => {
-    if (!isLoaded) {
+    if (!isLoaded || !isUserLoaded) {
       return;
     }
 
@@ -64,7 +64,7 @@ function AuthenticatedUserSync() {
     void syncUser(profile ? { profile } : {}).catch((error) => {
       console.error("Failed to sync the current Clerk user into Convex.", error);
     });
-  }, [isLoaded, isSignedIn, sessionId, profileKey, syncUser, user]);
+  }, [isLoaded, isSignedIn, isUserLoaded, sessionId, profileKey, syncUser, user]);
 
   return null;
 }

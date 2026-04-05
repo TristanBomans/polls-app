@@ -58,33 +58,58 @@ function sanitizeOptionLabel(label: string) {
   return label.replace(/\s+/g, " ").trim();
 }
 
+function joinNameParts(...parts: Array<string | undefined>) {
+  return parts
+    .filter((part): part is string => Boolean(part?.trim()))
+    .join(" ")
+    .trim();
+}
+
+function isMeaningfulDisplayName(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  if (trimmed.includes("@")) {
+    return false;
+  }
+
+  if (/^user_[A-Za-z0-9]+$/.test(trimmed)) {
+    return false;
+  }
+
+  return true;
+}
+
 function resolveIdentityDisplayName(
   identity: UserIdentity,
   profile?: UserProfileInput,
 ) {
+  const profileFullName = joinNameParts(profile?.firstName, profile?.lastName);
+  const identityFullName = joinNameParts(identity.givenName, identity.familyName);
+
   const fallbackCandidates = [
-    profile?.email,
     profile?.name,
-    profile?.username,
+    profileFullName,
     profile?.firstName,
     profile?.lastName,
     identity.name,
-    identity.email,
+    identityFullName,
     identity.givenName,
     identity.familyName,
     identity.nickname,
     identity.preferredUsername,
-    [identity.givenName, identity.familyName]
-      .filter((part): part is string => Boolean(part?.trim()))
-      .join(" ")
-      .trim(),
+    profile?.username,
+    profile?.email,
+    identity.email,
     identity.email?.split("@")[0],
     identity.subject,
   ];
 
   for (const candidate of fallbackCandidates) {
     const value = candidate?.trim();
-    if (value) {
+    if (value && isMeaningfulDisplayName(value)) {
       return value;
     }
   }
@@ -94,12 +119,13 @@ function resolveIdentityDisplayName(
 
 function resolveStoredUserDisplayName(user: Doc<"users">) {
   const normalizedName = user.name.trim();
-  if (user.email?.trim()) {
-    return user.email.trim();
+  if (isMeaningfulDisplayName(normalizedName)) {
+    return normalizedName;
   }
 
-  if (normalizedName) {
-    return normalizedName;
+  const email = user.email?.trim();
+  if (email) {
+    return email;
   }
 
   return "Anonymous";
@@ -113,6 +139,24 @@ function resolveIdentityContact(
     email: profile?.email ?? identity.email,
     imageUrl: profile?.imageUrl ?? identity.pictureUrl,
   };
+}
+
+function resolveStoredProfileField(
+  currentValue: string | undefined,
+  nextValue: string | undefined,
+): string | undefined {
+  const current = currentValue?.trim();
+  const next = nextValue?.trim();
+
+  if (isMeaningfulDisplayName(next ?? "")) {
+    return next;
+  }
+
+  if (isMeaningfulDisplayName(current ?? "")) {
+    return current;
+  }
+
+  return next ?? current;
 }
 
 function firstValidationError(question: string, options: PreparedOptionInput[]) {
@@ -156,24 +200,40 @@ async function syncCurrentUser(
     .unique();
 
   const now = Date.now();
+  const nextName = resolveIdentityDisplayName(identity, profile);
+  const nextContact = resolveIdentityContact(identity, profile);
 
   if (existingUser) {
+    const name = resolveStoredProfileField(existingUser.name, nextName);
+    const email = resolveStoredProfileField(existingUser.email, nextContact.email);
+    const imageUrl = resolveStoredProfileField(
+      existingUser.imageUrl,
+      nextContact.imageUrl,
+    );
+
     // Update last seen and possibly other info
     await ctx.db.patch(existingUser._id, {
       lastSeenAt: now,
-      ...(name !== existingUser.name && { name }),
-      ...(email !== existingUser.email && { email }),
-      ...(imageUrl !== existingUser.imageUrl && { imageUrl }),
+      ...(name !== existingUser.name && name !== undefined && { name }),
+      ...(email !== existingUser.email && email !== undefined && { email }),
+      ...(imageUrl !== existingUser.imageUrl &&
+        imageUrl !== undefined && { imageUrl }),
     });
-    return { ...existingUser, lastSeenAt: now, name, email, imageUrl };
+    return {
+      ...existingUser,
+      lastSeenAt: now,
+      name: name ?? existingUser.name,
+      email: email ?? existingUser.email,
+      imageUrl: imageUrl ?? existingUser.imageUrl,
+    };
   }
 
   // Create new user
   const userId = await ctx.db.insert("users", {
     clerkId,
-    name,
-    email,
-    imageUrl,
+    name: isMeaningfulDisplayName(nextName) ? nextName : nextContact.email ?? nextName,
+    email: nextContact.email,
+    imageUrl: nextContact.imageUrl,
     lastSeenAt: now,
   });
 
