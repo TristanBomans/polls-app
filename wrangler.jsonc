@@ -23,5 +23,11 @@
 		// Enable image optimization
 		// see https://opennext.js.org/cloudflare/howtos/image
 		"binding": "IMAGES"
-	}
+	},
+	"routes": [
+		{
+			"pattern": "polls.trisbom.com",
+			"custom_domain": true
+		}
+	]
 }
