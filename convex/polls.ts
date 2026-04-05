@@ -532,6 +532,21 @@ export const updatePoll = mutation({
   },
 });
 
+export const debugGetUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    return users;
+  },
+});
+
+export const syncUser = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return await syncCurrentUser(ctx);
+  },
+});
+
 export const submitVote = mutation({
   args: {
     slug: v.string(),
