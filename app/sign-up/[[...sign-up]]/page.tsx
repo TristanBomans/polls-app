@@ -1,5 +1,4 @@
 import { SignUp } from "@clerk/nextjs";
-import { Card } from "@/components/ui";
 
 export const metadata = {
   title: "Sign Up",
@@ -8,13 +7,7 @@ export const metadata = {
 export default function SignUpPage() {
   return (
     <div className="flex justify-center py-8">
-      <Card variant="elevated" padding="lg" className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <h1 className="text-xl font-semibold text-text-primary">Create an account</h1>
-          <p className="text-sm text-text-secondary mt-1">
-            Join to create polls and participate in the community
-          </p>
-        </div>
+      <div className="w-full max-w-md">
         <SignUp
           path="/sign-up"
           routing="path"
@@ -39,7 +32,7 @@ export default function SignUpPage() {
             },
           }}
         />
-      </Card>
+      </div>
     </div>
   );
 }
