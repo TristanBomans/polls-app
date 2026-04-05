@@ -1,6 +1,6 @@
 "use client";
 
-import { ClerkProvider, useAuth } from "@clerk/nextjs";
+import { ClerkProvider, useAuth, useUser } from "@clerk/nextjs";
 import { useMutation, ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { api } from "@/convex/_generated/api";
@@ -31,8 +31,19 @@ export function Providers({
 
 function AuthenticatedUserSync() {
   const { isLoaded, isSignedIn, sessionId } = useAuth();
+  const { user } = useUser();
   const syncUser = useMutation(api.polls.syncUser);
-  const lastSyncedSessionId = useRef<string | null>(null);
+  const lastSyncedProfileKey = useRef<string | null>(null);
+
+  const profileKey = [
+    sessionId ?? "",
+    user?.fullName ?? "",
+    user?.firstName ?? "",
+    user?.lastName ?? "",
+    user?.username ?? "",
+    user?.primaryEmailAddress?.emailAddress ?? "",
+    user?.imageUrl ?? "",
+  ].join("|");
 
   useEffect(() => {
     if (!isLoaded) {
@@ -40,19 +51,35 @@ function AuthenticatedUserSync() {
     }
 
     if (!isSignedIn || !sessionId) {
-      lastSyncedSessionId.current = null;
+      lastSyncedProfileKey.current = null;
       return;
     }
 
-    if (lastSyncedSessionId.current === sessionId) {
+    if (lastSyncedProfileKey.current === profileKey) {
       return;
     }
 
-    lastSyncedSessionId.current = sessionId;
-    void syncUser().catch((error) => {
+    lastSyncedProfileKey.current = profileKey;
+    const profile = buildUserProfile(user);
+    void syncUser(profile ? { profile } : {}).catch((error) => {
       console.error("Failed to sync the current Clerk user into Convex.", error);
     });
-  }, [isLoaded, isSignedIn, sessionId, syncUser]);
+  }, [isLoaded, isSignedIn, sessionId, profileKey, syncUser, user]);
 
   return null;
+}
+
+function buildUserProfile(user: ReturnType<typeof useUser>["user"]) {
+  if (!user) {
+    return undefined;
+  }
+
+  return {
+    name: user.fullName ?? undefined,
+    firstName: user.firstName ?? undefined,
+    lastName: user.lastName ?? undefined,
+    username: user.username ?? undefined,
+    email: user.primaryEmailAddress?.emailAddress ?? undefined,
+    imageUrl: user.imageUrl ?? undefined,
+  };
 }

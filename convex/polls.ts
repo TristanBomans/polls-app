@@ -25,11 +25,29 @@ const optionInputValidator = v.object({
   label: v.string(),
 });
 
+const userProfileValidator = v.object({
+  name: v.optional(v.string()),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  username: v.optional(v.string()),
+  email: v.optional(v.string()),
+  imageUrl: v.optional(v.string()),
+});
+
 type DataCtx = QueryCtx | MutationCtx;
 
 type PreparedOptionInput = {
   id?: Id<"pollOptions">;
   label: string;
+};
+
+type UserProfileInput = {
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  email?: string;
+  imageUrl?: string;
 };
 
 function sanitizeQuestion(question: string) {
@@ -40,13 +58,26 @@ function sanitizeOptionLabel(label: string) {
   return label.replace(/\s+/g, " ").trim();
 }
 
-function resolveIdentityDisplayName(identity: UserIdentity) {
+function resolveIdentityDisplayName(
+  identity: UserIdentity,
+  profile?: UserProfileInput,
+) {
+  const profileFullName = [profile?.firstName, profile?.lastName]
+    .filter((part): part is string => Boolean(part?.trim()))
+    .join(" ")
+    .trim();
+
   const fullName = [identity.givenName, identity.familyName]
     .filter((part): part is string => Boolean(part?.trim()))
     .join(" ")
     .trim();
 
   const fallbackCandidates = [
+    profile?.name,
+    profileFullName,
+    profile?.firstName,
+    profile?.lastName,
+    profile?.username,
     identity.name,
     fullName,
     identity.givenName,
@@ -65,6 +96,16 @@ function resolveIdentityDisplayName(identity: UserIdentity) {
   }
 
   return "Anonymous";
+}
+
+function resolveIdentityContact(
+  identity: UserIdentity,
+  profile?: UserProfileInput,
+) {
+  return {
+    email: profile?.email ?? identity.email,
+    imageUrl: profile?.imageUrl ?? identity.pictureUrl,
+  };
 }
 
 function firstValidationError(question: string, options: PreparedOptionInput[]) {
@@ -87,7 +128,10 @@ async function getViewerId(ctx: DataCtx) {
   return identity?.subject ?? null;
 }
 
-async function syncCurrentUser(ctx: MutationCtx): Promise<Doc<"users">> {
+async function syncCurrentUser(
+  ctx: MutationCtx,
+  profile?: UserProfileInput,
+): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new ConvexError("You must be signed in.");
@@ -95,10 +139,8 @@ async function syncCurrentUser(ctx: MutationCtx): Promise<Doc<"users">> {
 
   // Keep the current subject-based key for compatibility, but tolerate missing subjects.
   const clerkId = identity.subject || identity.tokenIdentifier;
-  const name = resolveIdentityDisplayName(identity);
-
-  const email = identity.email;
-  const imageUrl = identity.pictureUrl;
+  const name = resolveIdentityDisplayName(identity, profile);
+  const { email, imageUrl } = resolveIdentityContact(identity, profile);
 
   // Check if user exists
   const existingUser = await ctx.db
@@ -571,9 +613,11 @@ export const debugGetUsers = query({
 });
 
 export const syncUser = mutation({
-  args: {},
-  handler: async (ctx) => {
-    return await syncCurrentUser(ctx);
+  args: {
+    profile: v.optional(userProfileValidator),
+  },
+  handler: async (ctx, args) => {
+    return await syncCurrentUser(ctx, args.profile);
   },
 });
 
@@ -581,10 +625,11 @@ export const submitVote = mutation({
   args: {
     slug: v.string(),
     optionId: v.id("pollOptions"),
+    profile: v.optional(userProfileValidator),
   },
   handler: async (ctx, args): Promise<PollMutationResult> => {
     // Sync user profile before voting
-    await syncCurrentUser(ctx);
+    await syncCurrentUser(ctx, args.profile);
 
     const viewerId = await requireViewerId(ctx);
     const poll = await getPollBySlugOrThrow(ctx, args.slug);

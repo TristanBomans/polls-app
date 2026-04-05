@@ -1,5 +1,6 @@
 "use client";
 
+import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/convex/_generated/api";
@@ -14,6 +15,7 @@ interface VoteFormProps {
 
 export function VoteForm({ detail }: VoteFormProps) {
   const submitVote = useMutation(api.polls.submitVote);
+  const { user } = useUser();
   const [selectedOptionId, setSelectedOptionId] = useState<
     Id<"pollOptions"> | null
   >(detail.viewer.currentVoteOptionId ?? detail.activeOptions[0]?.id ?? null);
@@ -41,9 +43,11 @@ export function VoteForm({ detail }: VoteFormProps) {
     setSubmitError(null);
 
     try {
+      const profile = buildUserProfile(user);
       await submitVote({
         slug: detail.poll.slug,
         optionId: selectedOptionId,
+        ...(profile ? { profile } : {}),
       });
       setHasVoted(true);
     } catch (error) {
@@ -51,7 +55,7 @@ export function VoteForm({ detail }: VoteFormProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedOptionId, detail.poll.slug, submitVote]);
+  }, [selectedOptionId, detail.poll.slug, submitVote, user]);
 
   if (!detail.viewer.isAuthenticated) {
     return (
@@ -189,4 +193,21 @@ export function VoteForm({ detail }: VoteFormProps) {
       </form>
     </Card>
   );
+}
+
+function buildUserProfile(
+  user: ReturnType<typeof useUser>["user"],
+) {
+  if (!user) {
+    return undefined;
+  }
+
+  return {
+    name: user.fullName ?? undefined,
+    firstName: user.firstName ?? undefined,
+    lastName: user.lastName ?? undefined,
+    username: user.username ?? undefined,
+    email: user.primaryEmailAddress?.emailAddress ?? undefined,
+    imageUrl: user.imageUrl ?? undefined,
+  };
 }
