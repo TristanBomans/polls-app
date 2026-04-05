@@ -59,6 +59,74 @@ async function getViewerId(ctx: DataCtx) {
   return identity?.subject ?? null;
 }
 
+async function syncCurrentUser(ctx: MutationCtx): Promise<Doc<"users">> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new ConvexError("You must be signed in.");
+  }
+
+  const clerkId = identity.subject;
+  const name = identity.name ?? identity.email ?? "Anonymous";
+  const email = identity.email;
+  const imageUrl = identity.pictureUrl;
+
+  // Check if user exists
+  const existingUser = await ctx.db
+    .query("users")
+    .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+    .unique();
+
+  const now = Date.now();
+
+  if (existingUser) {
+    // Update last seen and possibly other info
+    await ctx.db.patch(existingUser._id, {
+      lastSeenAt: now,
+      ...(name !== existingUser.name && { name }),
+      ...(email !== existingUser.email && { email }),
+      ...(imageUrl !== existingUser.imageUrl && { imageUrl }),
+    });
+    return { ...existingUser, lastSeenAt: now, name, email, imageUrl };
+  }
+
+  // Create new user
+  const userId = await ctx.db.insert("users", {
+    clerkId,
+    name,
+    email,
+    imageUrl,
+    lastSeenAt: now,
+  });
+
+  return {
+    _id: userId,
+    _creationTime: now,
+    clerkId,
+    name,
+    email,
+    imageUrl,
+    lastSeenAt: now,
+  };
+}
+
+async function getUsersForVotes(
+  ctx: DataCtx,
+  votes: Doc<"votes">[]
+): Promise<Map<string, Doc<"users">>> {
+  const userIds = [...new Set(votes.map((v) => v.voterId))];
+  const users = await Promise.all(
+    userIds.map(async (clerkId) => {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+        .unique();
+      return user ? ([clerkId, user] as const) : null;
+    })
+  );
+
+  return new Map(users.filter(Boolean) as [string, Doc<"users">][]);
+}
+
 async function getPollBySlugOrThrow(ctx: DataCtx, slug: string) {
   const poll = await ctx.db
     .query("polls")
@@ -126,13 +194,19 @@ async function getVotesForPoll(
     .withIndex("by_pollId", (queryBuilder) => queryBuilder.eq("pollId", pollId))
     .collect();
 
+  // Get all users who voted
+  const usersMap = await getUsersForVotes(ctx, votes);
+
   // Group votes by optionId
   const votesByOptionId = new Map<string, VoteInfo[]>();
   for (const vote of votes) {
     const optionId = String(vote.optionId);
     const optionVotes = votesByOptionId.get(optionId) || [];
+    const user = usersMap.get(vote.voterId);
     optionVotes.push({
       voterId: vote.voterId,
+      voterName: user?.name ?? "Anonymous",
+      voterImage: user?.imageUrl,
       votedAt: vote.createdAt,
     });
     votesByOptionId.set(optionId, optionVotes);
@@ -308,6 +382,9 @@ export const createPoll = mutation({
   handler: async (ctx, args): Promise<PollMutationResult> => {
     void CLERK_CONVEX_JWT_TEMPLATE;
 
+    // Sync user profile before creating poll
+    await syncCurrentUser(ctx);
+
     const creatorId = await requireViewerId(ctx);
     const question = sanitizeQuestion(args.question);
     const options = args.options.map((option) => ({
@@ -461,6 +538,9 @@ export const submitVote = mutation({
     optionId: v.id("pollOptions"),
   },
   handler: async (ctx, args): Promise<PollMutationResult> => {
+    // Sync user profile before voting
+    await syncCurrentUser(ctx);
+
     const viewerId = await requireViewerId(ctx);
     const poll = await getPollBySlugOrThrow(ctx, args.slug);
     const selectedOption = await ctx.db.get(args.optionId);

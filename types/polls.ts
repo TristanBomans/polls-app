@@ -15,6 +15,8 @@ export interface PollSummary {
 
 export interface VoteInfo {
   voterId: string;
+  voterName: string;
+  voterImage?: string;
   votedAt: number;
 }
 

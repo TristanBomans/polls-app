@@ -27,7 +27,7 @@ export default function SignUpPage() {
                 "border-border-strong hover:border-text-muted focus:border-accent focus:ring-2 focus:ring-accent/20 rounded-xl h-11 text-sm",
               formFieldLabel: "text-sm font-medium text-text-primary",
               footerActionLink: "text-accent hover:text-accent-hover",
-              card: "shadow-none",
+              card: "shadow-none border-0 bg-transparent",
               header: "hidden",
               dividerLine: "bg-border",
               dividerText: "text-text-tertiary",

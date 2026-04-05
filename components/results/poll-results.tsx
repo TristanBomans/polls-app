@@ -12,10 +12,13 @@ interface PollResultsProps {
   showVoters?: boolean;
 }
 
-function formatVoterId(voterId: string): string {
-  // Show first 8 and last 4 characters of the voter ID
-  if (voterId.length <= 16) return voterId;
-  return `${voterId.slice(0, 8)}...${voterId.slice(-4)}`;
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 export function PollResults({
@@ -124,15 +127,28 @@ export function PollResults({
                     <p className="text-xs font-medium text-text-tertiary mb-2">
                       Voters ({option.voters!.length}):
                     </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {option.voters!.map((voter, index) => (
-                        <span
+                    <div className="flex flex-wrap gap-2">
+                      {option.voters!.map((voter) => (
+                        <div
                           key={voter.voterId}
-                          className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono bg-surface text-text-secondary"
-                          title={`Voted at ${formatDateTime(voter.votedAt)}`}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-surface border border-border/50"
+                          title={`${voter.voterName} voted at ${formatDateTime(voter.votedAt)}`}
                         >
-                          {formatVoterId(voter.voterId)}
-                        </span>
+                          {voter.voterImage ? (
+                            <img
+                              src={voter.voterImage}
+                              alt={voter.voterName}
+                              className="w-5 h-5 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-accent text-white text-[10px] font-medium flex items-center justify-center">
+                              {getInitials(voter.voterName)}
+                            </div>
+                          )}
+                          <span className="text-xs font-medium text-text-secondary">
+                            {voter.voterName}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   </div>
