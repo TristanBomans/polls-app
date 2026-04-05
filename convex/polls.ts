@@ -120,17 +120,25 @@ async function getViewerVote(
 async function getVotesForPoll(
   ctx: DataCtx,
   pollId: Id<"polls">,
-): Promise<(VoteInfo & { optionId: string })[]> {
+): Promise<Map<string, VoteInfo[]>> {
   const votes = await ctx.db
     .query("votes")
     .withIndex("by_pollId", (queryBuilder) => queryBuilder.eq("pollId", pollId))
     .collect();
 
-  return votes.map((vote) => ({
-    optionId: String(vote.optionId),
-    voterId: vote.voterId,
-    votedAt: vote.createdAt,
-  }));
+  // Group votes by optionId
+  const votesByOptionId = new Map<string, VoteInfo[]>();
+  for (const vote of votes) {
+    const optionId = String(vote.optionId);
+    const optionVotes = votesByOptionId.get(optionId) || [];
+    optionVotes.push({
+      voterId: vote.voterId,
+      votedAt: vote.createdAt,
+    });
+    votesByOptionId.set(optionId, optionVotes);
+  }
+
+  return votesByOptionId;
 }
 
 function mapOptionToResult(
@@ -161,15 +169,7 @@ async function buildPollResults(
   const options = await getAllOptionsForPoll(ctx, poll._id);
   const activeOptions = options.filter((option) => !option.isArchived);
   const archivedOptions = options.filter((option) => option.isArchived);
-  const allVotes = await getVotesForPoll(ctx, poll._id);
-
-  // Group votes by optionId
-  const votesByOptionId = new Map<string, VoteInfo[]>();
-  for (const vote of allVotes) {
-    const optionVotes = votesByOptionId.get(vote.optionId) || [];
-    optionVotes.push(vote);
-    votesByOptionId.set(vote.optionId, optionVotes);
-  }
+  const votesByOptionId = await getVotesForPoll(ctx, poll._id);
 
   return {
     pollId: poll._id,
