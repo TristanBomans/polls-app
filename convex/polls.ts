@@ -65,8 +65,19 @@ async function syncCurrentUser(ctx: MutationCtx): Promise<Doc<"users">> {
     throw new ConvexError("You must be signed in.");
   }
 
-  const clerkId = identity.subject;
-  const name = identity.name ?? identity.email ?? "Anonymous";
+  // Use tokenIdentifier as fallback if subject is not available
+  const clerkId = identity.subject || identity.tokenIdentifier;
+
+  // Try to get name from various sources
+  let name = identity.name;
+  if (!name && identity.email) {
+    // Use email username as name
+    name = identity.email.split("@")[0];
+  }
+  if (!name) {
+    name = "Anonymous";
+  }
+
   const email = identity.email;
   const imageUrl = identity.pictureUrl;
 
