@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import type { UserIdentity } from "convex/server";
 import {
   CLERK_CONVEX_JWT_TEMPLATE,
   createSlugBase,
@@ -39,6 +40,33 @@ function sanitizeOptionLabel(label: string) {
   return label.replace(/\s+/g, " ").trim();
 }
 
+function resolveIdentityDisplayName(identity: UserIdentity) {
+  const fullName = [identity.givenName, identity.familyName]
+    .filter((part): part is string => Boolean(part?.trim()))
+    .join(" ")
+    .trim();
+
+  const fallbackCandidates = [
+    identity.name,
+    fullName,
+    identity.givenName,
+    identity.familyName,
+    identity.nickname,
+    identity.preferredUsername,
+    identity.email?.split("@")[0],
+    identity.subject,
+  ];
+
+  for (const candidate of fallbackCandidates) {
+    const value = candidate?.trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  return "Anonymous";
+}
+
 function firstValidationError(question: string, options: PreparedOptionInput[]) {
   const errors = validatePollInput({ question, options });
   return errors[0] ?? null;
@@ -65,18 +93,9 @@ async function syncCurrentUser(ctx: MutationCtx): Promise<Doc<"users">> {
     throw new ConvexError("You must be signed in.");
   }
 
-  // Use tokenIdentifier as fallback if subject is not available
+  // Keep the current subject-based key for compatibility, but tolerate missing subjects.
   const clerkId = identity.subject || identity.tokenIdentifier;
-
-  // Try to get name from various sources
-  let name = identity.name;
-  if (!name && identity.email) {
-    // Use email username as name
-    name = identity.email.split("@")[0];
-  }
-  if (!name) {
-    name = "Anonymous";
-  }
+  const name = resolveIdentityDisplayName(identity);
 
   const email = identity.email;
   const imageUrl = identity.pictureUrl;
