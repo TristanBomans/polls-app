@@ -16,7 +16,7 @@ export function Providers({
   clerkPublishableKey,
   convexUrl,
 }: ProvidersProps) {
-  const [convex] = useState(() => new ConvexReactClient(convexUrl));
+  const [convex] = useState(() => new ConvexReactClient(convexUrl.trim()));
 
   return (
     <ClerkProvider publishableKey={clerkPublishableKey} afterSignOutUrl="/">
