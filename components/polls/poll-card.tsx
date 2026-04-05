@@ -11,7 +11,7 @@ export function PollCard({ poll }: PollCardProps) {
   const timeAgo = formatDistanceToNow(poll.updatedAt);
 
   return (
-    <article className="group rounded-2xl border border-border bg-surface p-5 shadow-sm hover:shadow-md hover:border-accent-muted transition-all duration-200">
+    <article className="group relative rounded-2xl border border-border bg-surface p-5 shadow-sm hover:shadow-md hover:border-accent-muted transition-all duration-200">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex-1 min-w-0">
