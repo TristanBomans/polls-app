@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { useUser } from "@clerk/nextjs";
 import { VoteForm } from "@/components/forms/vote-form";
 import { PollResults } from "@/components/results/poll-results";
 import { api } from "@/convex/_generated/api";
@@ -13,7 +12,6 @@ interface PollDetailScreenProps {
 }
 
 export function PollDetailScreen({ slug }: PollDetailScreenProps) {
-  const { isSignedIn } = useUser();
   const detail = useQuery(api.polls.getPollBySlug, { slug });
 
   if (detail === undefined) {
@@ -195,7 +193,6 @@ export function PollDetailScreen({ slug }: PollDetailScreenProps) {
             totalVoteCount={detail.poll.totalVoteCount}
             emptyMessage="No active options available."
             highlightedOptionId={detail.viewer.currentVoteOptionId}
-            showVoters={isSignedIn}
           />
 
           {detail.archivedOptions.length > 0 && (
@@ -206,7 +203,6 @@ export function PollDetailScreen({ slug }: PollDetailScreenProps) {
               totalVoteCount={detail.poll.totalVoteCount}
               emptyMessage="No archived options."
               highlightedOptionId={detail.viewer.currentVoteOptionId}
-              showVoters={isSignedIn}
             />
           )}
         </div>
