@@ -9,6 +9,7 @@ import type {
   PollMutationResult,
   PollResults,
   PollSummary,
+  VoteInfo,
 } from "../types/polls";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -116,12 +117,30 @@ async function getViewerVote(
     .unique();
 }
 
+async function getVotesForPoll(
+  ctx: DataCtx,
+  pollId: Id<"polls">,
+): Promise<(VoteInfo & { optionId: string })[]> {
+  const votes = await ctx.db
+    .query("votes")
+    .withIndex("by_pollId", (queryBuilder) => queryBuilder.eq("pollId", pollId))
+    .collect();
+
+  return votes.map((vote) => ({
+    optionId: String(vote.optionId),
+    voterId: vote.voterId,
+    votedAt: vote.createdAt,
+  }));
+}
+
 function mapOptionToResult(
   option: Doc<"pollOptions">,
   totalVoteCount: number,
+  votesByOptionId: Map<string, VoteInfo[]>,
 ) {
   const votePercentage =
     totalVoteCount === 0 ? 0 : (option.voteCount / totalVoteCount) * 100;
+  const voters = votesByOptionId.get(String(option._id)) || [];
 
   return {
     id: option._id,
@@ -131,6 +150,7 @@ function mapOptionToResult(
     votePercentage,
     isArchived: option.isArchived,
     hasVotes: option.voteCount > 0,
+    voters: voters.sort((a, b) => b.votedAt - a.votedAt),
   };
 }
 
@@ -141,6 +161,15 @@ async function buildPollResults(
   const options = await getAllOptionsForPoll(ctx, poll._id);
   const activeOptions = options.filter((option) => !option.isArchived);
   const archivedOptions = options.filter((option) => option.isArchived);
+  const allVotes = await getVotesForPoll(ctx, poll._id);
+
+  // Group votes by optionId
+  const votesByOptionId = new Map<string, VoteInfo[]>();
+  for (const vote of allVotes) {
+    const optionVotes = votesByOptionId.get(vote.optionId) || [];
+    optionVotes.push(vote);
+    votesByOptionId.set(vote.optionId, optionVotes);
+  }
 
   return {
     pollId: poll._id,
@@ -149,10 +178,10 @@ async function buildPollResults(
     totalVoteCount: poll.totalVoteCount,
     updatedAt: poll.updatedAt,
     activeOptions: activeOptions.map((option) =>
-      mapOptionToResult(option, poll.totalVoteCount),
+      mapOptionToResult(option, poll.totalVoteCount, votesByOptionId),
     ),
     archivedOptions: archivedOptions.map((option) =>
-      mapOptionToResult(option, poll.totalVoteCount),
+      mapOptionToResult(option, poll.totalVoteCount, votesByOptionId),
     ),
   };
 }

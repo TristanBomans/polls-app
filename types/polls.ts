@@ -13,6 +13,11 @@ export interface PollSummary {
   viewerCanEdit: boolean;
 }
 
+export interface VoteInfo {
+  voterId: string;
+  votedAt: number;
+}
+
 export interface PollResultOption {
   id: Id<"pollOptions">;
   label: string;
@@ -21,6 +26,7 @@ export interface PollResultOption {
   votePercentage: number;
   isArchived: boolean;
   hasVotes: boolean;
+  voters?: VoteInfo[];
 }
 
 export interface PollViewerState {

@@ -1,4 +1,4 @@
-import { formatPercentage } from "@/lib/utils";
+import { formatPercentage, formatDateTime } from "@/lib/utils";
 import type { PollResultOption } from "@/types/polls";
 import { Card, Badge } from "@/components/ui";
 
@@ -9,6 +9,13 @@ interface PollResultsProps {
   totalVoteCount: number;
   emptyMessage: string;
   highlightedOptionId?: string | null;
+  showVoters?: boolean;
+}
+
+function formatVoterId(voterId: string): string {
+  // Show first 8 and last 4 characters of the voter ID
+  if (voterId.length <= 16) return voterId;
+  return `${voterId.slice(0, 8)}...${voterId.slice(-4)}`;
 }
 
 export function PollResults({
@@ -18,6 +25,7 @@ export function PollResults({
   totalVoteCount,
   emptyMessage,
   highlightedOptionId,
+  showVoters = true,
 }: PollResultsProps) {
   const maxVotes = Math.max(...options.map((o) => o.voteCount), 0);
 
@@ -36,11 +44,12 @@ export function PollResults({
           <p className="text-sm text-text-tertiary">{emptyMessage}</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {options.map((option) => {
             const isHighlighted = highlightedOptionId === option.id;
             const isLeading = option.voteCount === maxVotes && option.voteCount > 0;
             const percentage = totalVoteCount > 0 ? option.votePercentage : 0;
+            const hasVoters = showVoters && option.voters && option.voters.length > 0;
 
             return (
               <div
@@ -108,6 +117,26 @@ export function PollResults({
                     }}
                   />
                 </div>
+
+                {/* Voters list */}
+                {hasVoters && (
+                  <div className="relative mt-3 pt-3 border-t border-border/50">
+                    <p className="text-xs font-medium text-text-tertiary mb-2">
+                      Voters ({option.voters!.length}):
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {option.voters!.map((voter, index) => (
+                        <span
+                          key={voter.voterId}
+                          className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono bg-surface text-text-secondary"
+                          title={`Voted at ${formatDateTime(voter.votedAt)}`}
+                        >
+                          {formatVoterId(voter.voterId)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
