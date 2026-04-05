@@ -62,28 +62,22 @@ function resolveIdentityDisplayName(
   identity: UserIdentity,
   profile?: UserProfileInput,
 ) {
-  const profileFullName = [profile?.firstName, profile?.lastName]
-    .filter((part): part is string => Boolean(part?.trim()))
-    .join(" ")
-    .trim();
-
-  const fullName = [identity.givenName, identity.familyName]
-    .filter((part): part is string => Boolean(part?.trim()))
-    .join(" ")
-    .trim();
-
   const fallbackCandidates = [
+    profile?.email,
     profile?.name,
-    profileFullName,
+    profile?.username,
     profile?.firstName,
     profile?.lastName,
-    profile?.username,
     identity.name,
-    fullName,
+    identity.email,
     identity.givenName,
     identity.familyName,
     identity.nickname,
     identity.preferredUsername,
+    [identity.givenName, identity.familyName]
+      .filter((part): part is string => Boolean(part?.trim()))
+      .join(" ")
+      .trim(),
     identity.email?.split("@")[0],
     identity.subject,
   ];
@@ -93,6 +87,19 @@ function resolveIdentityDisplayName(
     if (value) {
       return value;
     }
+  }
+
+  return "Anonymous";
+}
+
+function resolveStoredUserDisplayName(user: Doc<"users">) {
+  const normalizedName = user.name.trim();
+  if (user.email?.trim()) {
+    return user.email.trim();
+  }
+
+  if (normalizedName) {
+    return normalizedName;
   }
 
   return "Anonymous";
@@ -277,7 +284,7 @@ async function getVotesForPoll(
     const user = usersMap.get(vote.voterId);
     optionVotes.push({
       voterId: vote.voterId,
-      voterName: user?.name ?? "Anonymous",
+      voterName: user ? resolveStoredUserDisplayName(user) : "Anonymous",
       voterImage: user?.imageUrl,
       votedAt: vote.createdAt,
     });
