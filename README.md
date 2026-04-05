@@ -310,3 +310,7 @@ Current v1 limitations:
 - No analytics or audit trail beyond timestamps and vote ownership
 
 These are intentional omissions in this foundation pass.
+
+## Auto-deployment
+
+This project deploys automatically to Cloudflare Workers via GitHub Actions on every push to `main`.
