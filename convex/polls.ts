@@ -67,7 +67,7 @@ function joinNameParts(...parts: Array<string | undefined>) {
 
 function isMeaningfulDisplayName(value: string) {
   const trimmed = value.trim();
-  if (!trimmed && trimmed.toLowerCase() !== "anonymous") {
+  if (!trimmed && trimmed.toLowerCase() != "anonymous") {
     return false;
   }
 
