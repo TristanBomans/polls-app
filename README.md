@@ -256,60 +256,6 @@ Deployment flow:
 2. Build and preview locally with `npm run preview`.
 3. Deploy with `npm run deploy`.
 
-Notes:
-
-- The app is currently designed around dynamic Convex-backed routes, so no extra ISR cache layer is configured yet.
-- The generated OpenNext self-service binding remains in `wrangler.jsonc` for Cloudflare compatibility.
-- If a later frontend pass introduces tag revalidation or ISR-heavy behavior, add the recommended OpenNext cache bindings at that point instead of partially wiring them now.
-
-## Frontend Handoff Notes
-
-Main routes:
-
-- `/`
-- `/new`
-- `/poll/[slug]`
-- `/poll/[slug]/edit`
-- `/sign-in`
-- `/sign-up`
-
-What the next frontend agent can safely change:
-
-- Visual design
-- Layout composition
-- Component styling
-- Interaction polish
-- Loading states
-- Empty states
-- Copywriting
-
-What should not be changed without good reason:
-
-- Convex table model and vote invariants
-- Route paths and slug behavior
-- Authenticated voting model
-- Option archival behavior for voted options
-- Shared contracts in `types/polls.ts` without corresponding backend updates
-
-Recommended boundaries to preserve:
-
-- `components/layout/*`
-- `components/polls/*`
-- `components/forms/*`
-- `components/results/*`
-
-## Limitations
-
-Current v1 limitations:
-
-- No pagination on the overview yet
-- No poll deletion flow yet
-- No optimistic UI or toast system
-- No moderation / abuse prevention layer
-- No organization or team ownership model
-- No analytics or audit trail beyond timestamps and vote ownership
-
-These are intentional omissions in this foundation pass.
 
 ## Auto-deployment
 
