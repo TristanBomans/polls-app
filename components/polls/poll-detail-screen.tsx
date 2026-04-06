@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { VoteForm } from "@/components/forms/vote-form";
 import { PollResults } from "@/components/results/poll-results";
@@ -13,6 +14,7 @@ interface PollDetailScreenProps {
 
 export function PollDetailScreen({ slug }: PollDetailScreenProps) {
   const detail = useQuery(api.polls.getPollBySlug, { slug });
+  const [copied, setCopied] = useState(false);
 
   if (detail === undefined) {
     return (
@@ -158,25 +160,38 @@ export function PollDetailScreen({ slug }: PollDetailScreenProps) {
             {typeof window !== "undefined" ? window.location.href : `/poll/${slug}`}
           </code>
           <Button
-            variant="secondary"
+            variant={copied ? "primary" : "secondary"}
             size="sm"
             onClick={() => {
               if (typeof window !== "undefined") {
                 navigator.clipboard.writeText(window.location.href);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
               }
             }}
             leftIcon={
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
+              copied ? (
+                <svg className="w-4 h-4 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              )
             }
           >
-            Copy
+            {copied ? "Copied!" : "Copy"}
           </Button>
         </div>
       </Card>
